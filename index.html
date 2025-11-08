@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SubTrackr</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>SubTrackr</h1>
+    <p class="tag">Track your subscriptions. No surprises.</p>
+
+    <div id="login">
+      <input id="email" type="email" placeholder="Email" />
+      <input id="password" type="password" placeholder="Password" />
+      <button id="btnLogin">Login / Signup</button>
+    </div>
+
+    <div id="app" style="display:none;">
+      <div class="add">
+        <input id="name" placeholder="Subscription name" />
+        <input id="cost" placeholder="Monthly cost (₹)" type="number" />
+        <input id="renewal" type="date" />
+        <button id="btnAdd">Add subscription</button>
+      </div>
+
+      <h2>My Subscriptions</h2>
+      <ul id="list"></ul>
+      <h3>Total monthly: ₹<span id="total">0</span></h3>
+      <button id="btnLogout">Logout</button>
+    </div>
+  </div>
+
+  <!-- Firebase Modular SDK v9 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    import {
+      getDatabase,
+      ref,
+      push,
+      onValue
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+    // 🔥 Replace with your Firebase config from Firebase Console
+    const firebaseConfig = {
+      apiKey: "AIzaSyDvFQqgY0tn6lYm3ASow-XevX2MQOhUc0o",
+      authDomain: "subtrackr-c97aa.firebaseapp.com",
+      databaseURL: "https://subtrackr-c97aa-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "subtrackr-c97aa",
+      storageBucket: "subtrackr-c97aa.firebasestorage.app",
+      messagingSenderId: "605452369423",
+      appId: "1:605452369423:web:d971329536bf66c524ed7a",
+      measurementId: "G-V78NB81EWH"
+    };
+
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // Elements
+    const loginDiv = document.getElementById('login');
+    const appDiv = document.getElementById('app');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const btnLogin = document.getElementById('btnLogin');
+    const btnLogout = document.getElementById('btnLogout');
+    const btnAdd = document.getElementById('btnAdd');
+    const list = document.getElementById('list');
+    const totalEl = document.getElementById('total');
+    let userId = null;
+
+    // Auth State
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        userId = user.uid;
+        loginDiv.style.display = 'none';
+        appDiv.style.display = 'block';
+        loadSubs();
+      } else {
+        loginDiv.style.display = 'block';
+        appDiv.style.display = 'none';
+      }
+    });
+
+    // Login / Signup
+    btnLogin.addEventListener('click', async () => {
+      const email = emailInput.value.trim();
+      const pass = passwordInput.value.trim();
+      if (!email || !pass) return alert('Enter email & password');
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } catch {
+        await createUserWithEmailAndPassword(auth, email, pass);
+      }
+    });
+
+    // Logout
+    btnLogout.addEventListener('click', () => signOut(auth));
+
+    // Add subscription
+    btnAdd.addEventListener('click', async () => {
+      const name = document.getElementById('name').value.trim();
+      const cost = parseFloat(document.getElementById('cost').value || 0);
+      const renewal = document.getElementById('renewal').value;
+      if (!name || !renewal) return alert('Name and renewal date required');
+      await push(ref(db, 'subs/' + userId), { name, cost, renewal });
+      document.getElementById('name').value = '';
+      document.getElementById('cost').value = '';
+      document.getElementById('renewal').value = '';
+    });
+
+    // Load subscriptions
+    function loadSubs() {
+      onValue(ref(db, 'subs/' + userId), (snapshot) => {
+        list.innerHTML = '';
+        let total = 0;
+        snapshot.forEach(child => {
+          const val = child.val();
+          total += Number(val.cost || 0);
+          const li = document.createElement('li');
+          li.textContent = `${val.name} - ₹${val.cost || 0}`;
+          list.appendChild(li);
+        });
+        totalEl.innerText = total.toFixed(2);
+      });
+    }
+  </script>
+</body>
+</html>
